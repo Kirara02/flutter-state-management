@@ -1,7 +1,5 @@
-import 'dart:developer';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:state_management/api.dart';
 import 'package:state_management/providerManagement/cart.dart';
@@ -17,10 +15,11 @@ class _ProviderUIState extends State<ProviderUI> {
   Future<List<Cart>> getCarts() async {
     List<Cart> carts = [];
     final result = await dio.get("products");
+    Logger().d(result);
     for (var x in result.data) {
+      Logger().d(x.toString());
       carts.add(Cart.create(x));
     }
-
     return carts;
   }
 
@@ -36,72 +35,92 @@ class _ProviderUIState extends State<ProviderUI> {
           ),
         ),
         appBar: AppBar(title: const Text("Provider Management")),
-        body: FutureBuilder(
+        body: FutureBuilder<List<Cart>>(
           future: getCarts(),
-          initialData: const [],
           builder: (context, snapshot) {
-            if (snapshot.data!.isNotEmpty) {
-              List<Cart> data = snapshot.data as List<Cart>;
+            Logger().d(snapshot.data);
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (snapshot.hasData) {
+              List<Cart> data = snapshot.data!;
               return ListView.builder(
+                itemCount: data.length,
                 itemBuilder: (context, index) => Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(15),
-                  decoration:
-                      BoxDecoration(border: Border.all(color: Colors.red)),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.red)),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: Image(
-                            image: NetworkImage(data[index].image),
-                            width: 100,
-                            fit: BoxFit.contain,
-                          )),
+                        borderRadius: BorderRadius.circular(5),
+                        child: Image(
+                          image: NetworkImage(data[index].image),
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.fill,
+                        ),
+                      ),
                       const SizedBox(width: 20),
-                      Column(
-                        children: [
-                          Text(
-                            data[index].title,
-                            overflow: TextOverflow.ellipsis,
-                            softWrap: true,
+                      Expanded(
+                        child: SizedBox(
+                          height: 120,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data[index].title,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: true,
+                                maxLines: 2,
+                                style: TextStyle(fontSize: 18),
+                              ),
+                              const Spacer(),
+                              Consumer<CartProvider>(
+                                builder: (context, value, _) => Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        value.removeItem(data[index].id);
+                                      },
+                                      child: Container(
+                                        padding: EdgeInsets.all(4),
+                                        child: const Icon(Icons.remove),
+                                      ),
+                                    ),
+                                    Text(value.carts.indexWhere((element) => element.id == data[index].id) != -1
+                                        ? value.carts
+                                            .firstWhere((element) => element.id == data[index].id)
+                                            .qty
+                                            .toString()
+                                        : '0'),
+                                    InkWell(
+                                      onTap: () {
+                                        value.addItem(data[index]);
+                                      },
+                                      child: Container(
+                                        padding: EdgeInsets.all(4),
+                                        child: const Icon(Icons.add),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            ],
                           ),
-                          Consumer<CartProvider>(
-                            builder: (context, value, _) => Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                ElevatedButton(
-                                    onPressed: () {
-                                      value.removeItem(data[index].id);
-                                    },
-                                    child: const Icon(Icons.remove)),
-                                // const SizedBox(width: 10),
-                                Text(value.carts.indexWhere((element) =>
-                                            element.id == data[index].id) !=
-                                        -1
-                                    ? value.carts
-                                        .firstWhere((element) =>
-                                            element.id == data[index].id)
-                                        .qty
-                                        .toString()
-                                    : '0'),
-                                ElevatedButton(
-                                    onPressed: () {
-                                      value.addItem(data[index]);
-                                    },
-                                    child: const Icon(Icons.add)),
-                              ],
-                            ),
-                          )
-                        ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                itemCount: snapshot.data!.length,
               );
             } else {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: Text('No data available'));
             }
           },
         ),

@@ -1,7 +1,4 @@
-import "dart:developer";
-
-import "package:flutter/foundation.dart";
-import "package:state_management/api.dart";
+import 'package:flutter/foundation.dart';
 
 class Cart {
   final int id;
@@ -12,27 +9,23 @@ class Cart {
   final String image;
   int qty = 1;
 
-  Cart(
-      {required this.id,
-      required this.title,
-      required this.price,
-      required this.description,
-      required this.category,
-      required this.image});
+  Cart({
+    required this.id,
+    required this.title,
+    required this.price,
+    required this.description,
+    required this.category,
+    required this.image,
+  });
 
   factory Cart.create(Map<String, dynamic> object) => Cart(
         id: object['id'],
         title: object['title'],
-        price: object['price'],
+        price: (object['price'] as num).toDouble(),
         description: object['description'],
         category: object['category'],
         image: object['image'],
       );
-
-  Future<List<Cart>> getCarts() async {
-    final data = await dio.get("products");
-    return data.data;
-  }
 }
 
 class CartProvider extends ChangeNotifier {
@@ -41,29 +34,24 @@ class CartProvider extends ChangeNotifier {
   List<Cart> get carts => _carts;
 
   void addItem(Cart item) {
-    if (carts.indexWhere((element) => element.id == item.id) >= 0) {
-      carts
-          .firstWhere(
-            (element) => element.id == item.id,
-          )
-          .qty += 1;
+    int index = _carts.indexWhere((element) => element.id == item.id);
+    if (index >= 0) {
+      _carts[index].qty += 1;
     } else {
-      carts.add(item);
+      _carts.add(item);
     }
     notifyListeners();
   }
 
   void removeItem(int id) {
-    int element = carts.indexWhere((element) => element.id == id);
+    int index = _carts.indexWhere((element) => element.id == id);
+    if (index == -1) return;
 
-    if (element == -1) return;
-
-    if (carts[element].qty == 1) {
-      carts.removeWhere((element) => element.id == id);
+    if (_carts[index].qty == 1) {
+      _carts.removeAt(index);
     } else {
-      carts[element].qty--;
+      _carts[index].qty--;
     }
-
     notifyListeners();
   }
 }
